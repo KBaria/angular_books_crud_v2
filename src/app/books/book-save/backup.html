@@ -1,0 +1,223 @@
+<div class="container">
+    <mat-card class="m-4 shadow">
+        <mat-card-header>
+            <mat-card-title>
+                <h4>{{cardTitle}}</h4>
+                <hr>
+            </mat-card-title>
+        </mat-card-header>
+        
+        <mat-card-content>
+            <form [formGroup]="bookForm">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="ms-2 text-primary">Book details</h5>
+                        <div class="border m-2 p-3 mb-4">
+                            <mat-form-field class="w-100">
+                                <mat-label>ISBN</mat-label>
+                                <input matInput formControlName="isbn">
+                                <mat-error *ngIf="bookForm.get('isbn')?.hasError('isbnExists')">
+                                    ISBN exists
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field class="w-100">
+                                <mat-label>Title</mat-label>
+                                <input matInput formControlName="title">
+                                <mat-error *ngIf="bookForm.get('title')?.hasError('titleExists')">
+                                    Title exists
+                                </mat-error>
+                            </mat-form-field>
+
+                            <mat-form-field class="w-100">
+                                <mat-label>Pages</mat-label>
+                                <input type="number" matInput formControlName="pages">
+                            </mat-form-field>
+                            
+                            <mat-form-field class="w-100">
+                                <mat-label>Description</mat-label>
+                                <textarea matInput formControlName="description" rows="3"></textarea>
+                            </mat-form-field>
+                        </div>
+
+                        <h5 class="ms-2 text-primary">Publisher details</h5>
+                        <div class="border m-2 p-3 mb-4" formGroupName="publisher">
+                            
+                            <mat-label>Publisher Type</mat-label>
+                            <mat-radio-group formControlName="publisherType">
+                                <mat-radio-button value="existing">Existing publisher</mat-radio-button>
+                                <mat-radio-button value="new">New publisher</mat-radio-button>
+                            </mat-radio-group>
+
+                            <div *ngIf="this.bookForm.get('publisher')?.get('publisherType')?.value === 'new'">
+                                <mat-form-field class="w-100">
+                                    <mat-label>New publisher name</mat-label>
+                                    <input matInput formControlName="newPublisher">
+                                    <mat-error *ngIf="newPublisherControl.hasError('publisherNameExists')">Publisher already exists</mat-error>
+                                </mat-form-field>
+                            </div>
+
+                            <!-- <ng-container 
+                            *ngIf="this.bookForm.get('publisher')?.get('publisherType')?.value === 'existing'" 
+                            [ngTemplateOutlet]="newPublisher" 
+                            [ngTemplateOutletContext]="{form:bookForm.get('publisher')}"></ng-container> -->
+
+                            <mat-form-field *ngIf="this.bookForm.get('publisher')?.get('publisherType')?.value === 'existing'" class="w-100">
+                                <mat-label>Select publisher</mat-label>
+                                <mat-select formControlName="publisherSelect">
+                                    <mat-option>
+                                        <ngx-mat-select-search placeholderLabel="Search publisher" noEntriesFoundLabel="no such publisher" formControlName="publisherSearch"></ngx-mat-select-search>
+                                    </mat-option>
+                                    <mat-option *ngFor="let p of filteredPublishers$ | async" 
+                                    [value]="p.id">
+                                        {{p.publisherName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field class="w-100 mb-2">
+                                <mat-label>Publication date</mat-label>
+                                <input matInput [matDatepicker]="picker" formControlName="publicationDate">
+                                <mat-hint>MM/DD/YYYY</mat-hint>
+                                <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+                                <mat-datepicker #picker></mat-datepicker>
+                            </mat-form-field>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <h5 class="ms-2 text-primary">Author details</h5>
+                        <div class="border m-2 p-3 mb-4" formGroupName="authors">
+                            <mat-form-field class="w-100">
+                                <mat-label>Select authors</mat-label>
+                                <mat-chip-grid #authorChipGrid formControlName="authorsSelect">
+                                    <mat-chip-row *ngFor="let c of authorChips; index as i"
+                                    (removed)="removeAuthorChip(i)" [value]="c.value">
+                                        {{c.viewValue}}
+                                        <button matChipRemove>
+                                            <mat-icon>cancel</mat-icon>
+                                        </button>
+                                    </mat-chip-row>
+                                </mat-chip-grid>
+                                <input #authorSearchInput matInput
+                                [matAutocomplete]="authorAuto"
+                                [matChipInputFor]="authorChipGrid"
+                                [matChipInputSeparatorKeyCodes]="separatorKeysCodes" formControlName="authorsSearch">
+                                <mat-autocomplete autoActiveFirstOption #authorAuto 
+                                (optionSelected)="handleAuthorOptionSelectedEvent($event)">
+                                    <mat-option *ngFor="let a of filteredAuthors$ | async" [value]="a.id">
+                                        {{a.authorName}}
+                                    </mat-option>
+                                </mat-autocomplete>
+                            </mat-form-field>
+                            
+                            <button type="button" class="btn btn-success mb-2" (click)="addNewAuthorGroup()">
+                                Add new author
+                            </button>
+
+                            <div *ngIf="newAuthorsFormArray.length">
+                                <h5 class="ms-2 mt-2 text-primary">New authors</h5>
+                                <div class="border m-2 p-3 pb-0 bg-light-subtle">
+                                    <div formArrayName="newAuthors">
+                                        <div *ngFor="let a of newAuthorsFormArray.controls; index as i" 
+                                        [formGroupName] = i>
+                                            <mat-form-field class="w-100 mb-2">
+                                                <mat-label>New author {{i+1}}</mat-label>
+                                                <input matInput formControlName="newAuthor">
+                                                <button type="button" matSuffix class="btn btn-danger me-2"
+                                                (click)="removeNewAuthorGroup(i)">
+                                                    <fa-icon [icon]="faTrashCan"></fa-icon>
+                                                </button>
+                                                <p>{{a.get("newAuthor")?.errors | json}}</p>
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="ms-2 text-primary">Genre details</h5>
+                        <div class="border m-2 p-3" formGroupName="genres">
+                            <mat-form-field class="w-100">
+                                <mat-label>Select genres</mat-label>
+                                <mat-chip-grid #genreChipGrid formControlName="genresSelect">
+                                    <mat-chip-row *ngFor="let c of genreChips; index as i" 
+                                    (removed)="removeGenreChip(i)" [value]="c.value">
+                                        {{c.viewValue}}
+                                        <button matChipRemove>
+                                            <mat-icon>cancel</mat-icon>
+                                        </button>
+                                    </mat-chip-row>
+                                </mat-chip-grid>
+                                <input #genreSearchInput matInput 
+                                [matAutocomplete]="genreAuto" 
+                                [matChipInputFor]="genreChipGrid" 
+                                [matChipInputSeparatorKeyCodes]="separatorKeysCodes" formControlName="genresSearch">
+                                <mat-autocomplete autoActiveFirstOption #genreAuto 
+                                (optionSelected)="handleGenreOptionSelectedEvent($event)">
+                                    <mat-option *ngFor="let g of filteredGenres$ | async" [value]="g.id">
+                                        {{g.genreName}}
+                                    </mat-option>
+                                </mat-autocomplete>
+                            </mat-form-field>
+                            
+                            <button type="button" class="btn btn-success mb-2" (click)="addNewGenreGroup()">
+                                Add new genre
+                            </button>
+
+                            <div *ngIf="newGenresFormArray.length">
+                                <h5 class="ms-2 mt-2 text-primary">New genres</h5>
+                                <div class="border m-2 p-3 pb-0 bg-light-subtle">
+                                    <div formArrayName="newGenres">
+                                        <div *ngFor="let a of newGenresFormArray.controls; index as i" 
+                                        [formGroupName] = i>
+                                            <mat-form-field class="w-100 mb-2">
+                                                <mat-label>New genre {{i+1}}</mat-label>
+                                                <input matInput formControlName="newGenre">
+                                                <button type="button" matSuffix class="btn btn-danger me-2"
+                                                (click)="removeNewGenreGroup(i)">
+                                                    <fa-icon [icon]="faTrashCan"></fa-icon>
+                                                </button>
+                                                <p>{{a.get("newGenre")?.errors | json}}</p>
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="ms-2 text-primary">Form data</h5>
+                        <div class="border m-2 p-3">
+                            <pre class="mb-0" style="white-space: pre-wrap;">output: {{bookForm.value | json}}</pre>
+                            <pre class="mb-0">invalid: {{bookForm.invalid}}</pre>
+                            <pre class="mb-0">touched: {{bookForm.touched}}</pre>
+                            <pre class="mb-0">dirty: {{bookForm.dirty}}</pre>
+                            <pre class="mb-0">pristine: {{bookForm.pristine}}</pre>
+                            <pre class="mb-0">new authors invalid: {{newAuthorsFormArray.invalid}}</pre>
+                            <pre class="mb-0">new genres invalid: {{newGenresFormArray.invalid}}</pre>
+                            <pre class="mb-0">new publisher invalid: {{newPublisherControl.invalid}}</pre>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-danger">Cancel</button>
+                <button type="submit" class="btn btn-success">Submit</button>
+            </form>
+        </mat-card-content>
+    </mat-card>
+</div>
+
+<ng-template #newPublisher let-form="form">
+    <div [formGroup]="form">
+        <mat-form-field class="w-100">
+            <mat-label>Select publisher</mat-label>
+            <mat-select formControlName="publisherSelect">
+                <mat-option>
+                    <ngx-mat-select-search placeholderLabel="Search publisher" noEntriesFoundLabel="no such publisher" formControlName="publisherSearch"></ngx-mat-select-search>
+                </mat-option>
+                <mat-option *ngFor="let p of filteredPublishers$ | async" 
+                [value]="p.id">
+                    {{p.publisherName}}
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
+</ng-template>
